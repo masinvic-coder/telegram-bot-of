@@ -1,118 +1,125 @@
-import os
+import logging
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler, ConversationHandler,
-    ContextTypes, filters
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
 )
 
-# States
-(NAME, AGE, LOCATION, INSTAGRAM, OF_ACCOUNT, FACE_OK, CONTACT_METHOD, CONTACT_INFO, EXTRA) = range(9)
+BOT_TOKEN = "8277969955:AAHjwdGW0WX6CGd0c2jhTkNvilkmKcy6N98"
+CHANNEL_ID = -1002722852436
 
-# Keyboard options
-of_account_keyboard = [['Да', 'Нет', 'Пока нет, но готова начать']]
-face_keyboard = [['Да', 'Нет', 'Зависит от контента']]
-contact_keyboard = [['Email', 'Telegram', 'Instagram', 'WhatsApp']]
+logging.basicConfig(level=logging.INFO)
+
+QUESTIONS = [
+    {"key": "name", "text": "1. What’s your name?"},
+    {"key": "age", "text": "2. How old are you?"},
+    {"key": "location", "text": "3. Where are you based?"},
+    {"key": "instagram", "text": "4. Instagram link"},
+    {
+        "key": "has_of",
+        "text": "5. Do you already have an OnlyFans account?",
+        "options": ["Yes", "No", "Not yet, but I’m ready to start"],
+    },
+    {
+        "key": "show_face",
+        "text": "6. Are you okay with showing your face in content?",
+        "options": ["Yes", "No", "Depends on the content"],
+    },
+    {
+        "key": "contact_method",
+        "text": "7. How would you prefer we contact you?",
+        "options": ["Email", "Telegram", "Instagram DM", "WhatsApp"],
+    },
+    {"key": "contact_info", "text": "8. Contact information"},
+    {"key": "extra", "text": "9. Anything else you want to tell us?"},
+]
+
+user_states = {}
+
+def get_next_question(state):
+    step = state["step"]
+    if step < len(QUESTIONS):
+        q = QUESTIONS[step]
+        if "options" in q:
+            return q["text"], q["options"]
+        else:
+            return q["text"], None
+    return None, None
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("1. Как тебя зовут?")
-    return NAME
+    user_id = update.effective_chat.id
+    user_states[user_id] = {"step": 0, "answers": {}}
+    text, options = get_next_question(user_states[user_id])
+    if options:
+        markup = ReplyKeyboardMarkup([[o] for o in options], one_time_keyboard=True, resize_keyboard=True)
+        await update.message.reply_text(text, reply_markup=markup)
+    else:
+        await update.message.reply_text(text)
 
-async def name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['name'] = update.message.text
-    await update.message.reply_text("2. Сколько тебе лет?")
-    return AGE
 
-async def age(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['age'] = update.message.text
-    await update.message.reply_text("3. Где ты находишься?")
-    return LOCATION
+async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_chat.id
+    message = update.message.text.strip()
 
-async def location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['location'] = update.message.text
-    await update.message.reply_text("4. Ссылочка на Instagram")
-    return INSTAGRAM
+    if user_id not in user_states:
+        await update.message.reply_text("Please type /start to begin.")
+        return
 
-async def instagram(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['instagram'] = update.message.text
-    await update.message.reply_text(
-        "5. Уже есть аккаунт OnlyFans?",
-        reply_markup=ReplyKeyboardMarkup(of_account_keyboard, one_time_keyboard=True, resize_keyboard=True)
-    )
-    return OF_ACCOUNT
+    state = user_states[user_id]
+    step = state["step"]
 
-async def of_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['of_account'] = update.message.text
-    await update.message.reply_text(
-        "6. Готова ли показывать лицо в контенте?",
-        reply_markup=ReplyKeyboardMarkup(face_keyboard, one_time_keyboard=True, resize_keyboard=True)
-    )
-    return FACE_OK
+    if step >= len(QUESTIONS):
+        await update.message.reply_text("You’ve already completed the form. Thank you!")
+        return
 
-async def face_ok(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['face_ok'] = update.message.text
-    await update.message.reply_text(
-        "7. Удобный способ связи",
-        reply_markup=ReplyKeyboardMarkup(contact_keyboard, one_time_keyboard=True, resize_keyboard=True)
-    )
-    return CONTACT_METHOD
+    key = QUESTIONS[step]["key"]
+    state["answers"][key] = message
+    state["step"] += 1
 
-async def contact_method(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['contact_method'] = update.message.text
-    await update.message.reply_text("8. Контактная информация", reply_markup=ReplyKeyboardRemove())
-    return CONTACT_INFO
+    if state["step"] < len(QUESTIONS):
+        text, options = get_next_question(state)
+        if options:
+            markup = ReplyKeyboardMarkup([[o] for o in options], one_time_keyboard=True, resize_keyboard=True)
+            await update.message.reply_text(text, reply_markup=markup)
+        else:
+            await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
+    else:
+        await update.message.reply_text("✅ Thank you! Your application has been submitted.")
+        await send_summary_to_channel(context, state["answers"])
+        del user_states[user_id]
 
-async def contact_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['contact_info'] = update.message.text
-    await update.message.reply_text("9. Что еще хочешь рассказать о себе (Опционально)")
-    return EXTRA
 
-async def extra(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['extra'] = update.message.text
+async def send_summary_to_channel(context, answers):
+    msg = "📥 *New Application Submitted:*\n\n"
+    label_map = {
+        "name": "Name",
+        "age": "Age",
+        "location": "Location",
+        "instagram": "Instagram",
+        "has_of": "OnlyFans Account",
+        "show_face": "Show Face",
+        "contact_method": "Preferred Contact Method",
+        "contact_info": "Contact Info",
+        "extra": "Extra Notes",
+    }
+    for key in QUESTIONS:
+        k = key["key"]
+        v = answers.get(k, "—")
+        label = label_map.get(k, k.capitalize())
+        msg += f"*{label}:* {v}\n"
 
-    data = context.user_data
-    summary = (
-        f"📥 Новая анкета:\n"
-        f"Имя: {data['name']}\n"
-        f"Возраст: {data['age']}\n"
-        f"Локация: {data['location']}\n"
-        f"Instagram: {data['instagram']}\n"
-        f"OnlyFans: {data['of_account']}\n"
-        f"Показывает лицо: {data['face_ok']}\n"
-        f"Связь: {data['contact_method']} — {data['contact_info']}\n"
-        f"Дополнительно: {data['extra']}"
-    )
+    await context.bot.send_message(chat_id=CHANNEL_ID, text=msg, parse_mode="Markdown")
 
-    await context.bot.send_message(chat_id=os.getenv("ADMIN_CHAT_ID"), text=summary)
-    await update.message.reply_text("✅ Спасибо! Анкету получили, скоро свяжемся с тобой")
-    return ConversationHandler.END
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Окей, отменено.", reply_markup=ReplyKeyboardRemove())
-    return ConversationHandler.END
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-async def main():
-    application = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_response))
 
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, name)],
-            AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, age)],
-            LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, location)],
-            INSTAGRAM: [MessageHandler(filters.TEXT & ~filters.COMMAND, instagram)],
-            OF_ACCOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, of_account)],
-            FACE_OK: [MessageHandler(filters.TEXT & ~filters.COMMAND, face_ok)],
-            CONTACT_METHOD: [MessageHandler(filters.TEXT & ~filters.COMMAND, contact_method)],
-            CONTACT_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, contact_info)],
-            EXTRA: [MessageHandler(filters.TEXT & ~filters.COMMAND, extra)],
-        },
-        fallbacks=[CommandHandler('cancel', cancel)],
-    )
-
-    application.add_handler(conv_handler)
-    print("🤖 Бот запущен...")
-    await application.run_polling()
-
-if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    print("Bot is running...")
+    app.run_polling()
