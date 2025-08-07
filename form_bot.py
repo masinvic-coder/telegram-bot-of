@@ -1,16 +1,19 @@
 import os
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import (ApplicationBuilder, CommandHandler, MessageHandler,
-                          ConversationHandler, ContextTypes, filters)
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler,
+    ConversationHandler, ContextTypes, filters
+)
 
 # States
 (NAME, AGE, LOCATION, INSTAGRAM, OF_ACCOUNT, FACE_OK, CONTACT_METHOD, CONTACT_INFO, EXTRA) = range(9)
 
-# Keyboard options
+# Keyboards
 of_account_keyboard = [['Да', 'Нет', 'Пока нет, но готова начать']]
 face_keyboard = [['Да', 'Нет', 'Зависит от контента']]
 contact_keyboard = [['Email', 'Telegram', 'Instagram', 'WhatsApp']]
 
+# Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("1. Как тебя зовут?")
     return NAME
@@ -80,10 +83,10 @@ async def extra(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Дополнительно: {data['extra']}"
     )
 
-    # Use CHANNEL_ID directly instead of os.getenv
-    CHANNEL_ID = "-1002722852436"
-    await context.bot.send_message(chat_id=CHANNEL_ID, text=summary)
+    # Safe fallback if ADMIN_CHAT_ID is not set
+    admin_chat_id = os.getenv("ADMIN_CHAT_ID", "-1002722852436")
 
+    await context.bot.send_message(chat_id=admin_chat_id, text=summary)
     await update.message.reply_text("✅ Спасибо! Анкету получили, скоро свяжемся с тобой")
     return ConversationHandler.END
 
@@ -91,7 +94,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Окей, отменено.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-# ✅ Main function should NOT be inside any other function
+# Main function
 async def main():
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
