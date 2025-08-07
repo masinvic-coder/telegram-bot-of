@@ -69,22 +69,14 @@ async def extra(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = context.user_data
     summary = (
-        f"📥 Новая анкета:
-"
-        f"Имя: {data['name']}
-"
-        f"Возраст: {data['age']}
-"
-        f"Локация: {data['location']}
-"
-        f"Instagram: {data['instagram']}
-"
-        f"OnlyFans: {data['of_account']}
-"
-        f"Показывает лицо: {data['face_ok']}
-"
-        f"Связь: {data['contact_method']} - {data['contact_info']}
-"
+        f"📥 Новая анкета:\n"
+        f"Имя: {data['name']}\n"
+        f"Возраст: {data['age']}\n"
+        f"Локация: {data['location']}\n"
+        f"Instagram: {data['instagram']}\n"
+        f"OnlyFans: {data['of_account']}\n"
+        f"Показывает лицо: {data['face_ok']}\n"
+        f"Связь: {data['contact_method']} — {data['contact_info']}\n"
         f"Дополнительно: {data['extra']}"
     )
 
