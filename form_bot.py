@@ -80,8 +80,9 @@ async def extra(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Дополнительно: {data['extra']}"
     )
 
+    # Use CHANNEL_ID directly instead of os.getenv
     CHANNEL_ID = "-1002722852436"
-    await context.bot.send_message(chat_id=os.getenv("ADMIN_CHAT_ID"), text=summary)
+    await context.bot.send_message(chat_id=CHANNEL_ID, text=summary)
 
     await update.message.reply_text("✅ Спасибо! Анкету получили, скоро свяжемся с тобой")
     return ConversationHandler.END
@@ -89,9 +90,10 @@ async def extra(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Окей, отменено.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
-    CHANNEL_ID = "-1002722852436"
-    await context.bot.send_message(chat_id=CHANNEL_ID, text=summary)
 
+# ✅ Main function should NOT be inside any other function
+async def main():
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
@@ -112,4 +114,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     app.add_handler(conv_handler)
     print("🤖 Бот запущен...")
-    app.run_polling()
+    await app.run_polling()
+
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())
