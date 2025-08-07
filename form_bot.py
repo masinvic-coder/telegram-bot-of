@@ -89,11 +89,8 @@ async def extra(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Окей, отменено.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
-
-if __name__ == '__main__':
-    import asyncio
-
-    BOT_TOKEN = os.getenv("BOT_TOKEN")
+    CHANNEL_ID = "-1002722852436"
+    await context.bot.send_message(chat_id=CHANNEL_ID, text=summary)
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
