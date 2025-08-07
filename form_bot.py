@@ -1,19 +1,18 @@
 import os
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler,
-    ConversationHandler, ContextTypes, filters
+    ApplicationBuilder, CommandHandler, MessageHandler, ConversationHandler,
+    ContextTypes, filters
 )
 
 # States
 (NAME, AGE, LOCATION, INSTAGRAM, OF_ACCOUNT, FACE_OK, CONTACT_METHOD, CONTACT_INFO, EXTRA) = range(9)
 
-# Keyboards
+# Keyboard options
 of_account_keyboard = [['Да', 'Нет', 'Пока нет, но готова начать']]
 face_keyboard = [['Да', 'Нет', 'Зависит от контента']]
 contact_keyboard = [['Email', 'Telegram', 'Instagram', 'WhatsApp']]
 
-# Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("1. Как тебя зовут?")
     return NAME
@@ -83,10 +82,7 @@ async def extra(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Дополнительно: {data['extra']}"
     )
 
-    # Safe fallback if ADMIN_CHAT_ID is not set
-    admin_chat_id = os.getenv("ADMIN_CHAT_ID", "-1002722852436")
-
-    await context.bot.send_message(chat_id=admin_chat_id, text=summary)
+    await context.bot.send_message(chat_id=os.getenv("ADMIN_CHAT_ID"), text=summary)
     await update.message.reply_text("✅ Спасибо! Анкету получили, скоро свяжемся с тобой")
     return ConversationHandler.END
 
@@ -94,10 +90,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Окей, отменено.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-# Main function
 async def main():
-    BOT_TOKEN = os.getenv("BOT_TOKEN")
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
@@ -115,9 +109,9 @@ async def main():
         fallbacks=[CommandHandler('cancel', cancel)],
     )
 
-    app.add_handler(conv_handler)
+    application.add_handler(conv_handler)
     print("🤖 Бот запущен...")
-    await app.run_polling()
+    await application.run_polling()
 
 if __name__ == '__main__':
     import asyncio
